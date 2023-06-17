@@ -1,4 +1,5 @@
-﻿using PuppeteerExtraSharp;
+﻿using Newtonsoft.Json;
+using PuppeteerExtraSharp;
 using PuppeteerExtraSharp.Plugins.ExtraStealth;
 using PuppeteerSharp;
 using System;
@@ -6,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace KickDownloader.Http.Service
@@ -24,12 +26,18 @@ namespace KickDownloader.Http.Service
         {
             _puppeteerExtra.Use(new StealthPlugin());
         }
-        public static async Task<PuppeteerHttpService> CreateAsync(LaunchOptions launchOptions) 
+
+        public static async Task<PuppeteerHttpService> CreateAsync(LaunchOptions launchOptions)
         {
-            await new BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
+            var browserFetcher = await new BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
             return new PuppeteerHttpService(launchOptions);
         }
-        public async Task<string> ProcessRequestAsync(string url)
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="url">Since going to use only get requests, use simple url param.</param>
+        /// <returns></returns>
+        public async Task<T> ProcessGetAsync<T>(string url)
         {
             // Launch the puppeteer browser with plugins
             using (IBrowser browser = await _puppeteerExtra.LaunchAsync(_launchOptions))
@@ -41,11 +49,14 @@ namespace KickDownloader.Http.Service
                     WaitUntilNavigation.DOMContentLoaded }
                 };
                 await page.GoToAsync(url, navigation);
-                var content = await page.GetContentAsync();
+                
+                string content = await page.EvaluateExpressionAsync<string>("document.body.innerText"); //get inner text/text as puppeteer serializes html content
 
                 await page.DisposeAsync();
                 await browser.DisposeAsync();
-                return content;
+                var jsonObject = JsonConvert.DeserializeObject<T>(content);
+
+                return jsonObject;
             }
         }
     }
